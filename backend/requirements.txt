@@ -1,0 +1,8 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+numpy==2.1.1
+scipy==1.14.1
+pydantic==2.9.2
+websockets==13.1
+pytest==8.3.3

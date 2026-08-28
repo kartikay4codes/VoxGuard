@@ -1,0 +1,15 @@
+# Optional -- only needed to enable the pretrained deep-learning detector
+# (app/deep_detector.py). The app runs fine without this file installed;
+# it automatically falls back to the DSP heuristic scorer in
+# app/synthetic_detector.py if these aren't present.
+#
+# Install with:  pip install -r requirements-ml.txt
+#
+# Heads up: this pulls in torch (CPU build, still several hundred MB) and
+# transformers, and the model itself (~1.3GB) downloads from Hugging Face
+# on first run. Budget time and disk space for this before your demo, not
+# during it -- run `python3 -c "from app import deep_detector; deep_detector.is_available()"`
+# once, in advance, to trigger and confirm the download.
+
+torch>=2.2.0
+transformers>=4.40.0
