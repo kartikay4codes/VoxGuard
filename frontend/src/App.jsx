@@ -5,15 +5,15 @@ import ChallengePanel from "./components/ChallengePanel";
 import TransferPanel from "./components/TransferPanel";
 
 const MODULES = [
-  { id: "enroll", label: "Enroll", num: "01" },
-  { id: "call", label: "Live Call", num: "02" },
-  { id: "challenge", label: "Challenge", num: "03" },
-  { id: "transfer", label: "Transfer Hold", num: "04" },
+  { id: "enroll", label: "Voice-DNA Enroll", num: "01" },
+  { id: "call", label: "Live Call Firewall", num: "02" },
+  { id: "challenge", label: "Liveness Challenge", num: "03" },
+  { id: "transfer", label: "Linked Wire Hold", num: "04" },
 ];
 
 export default function App() {
   const [active, setActive] = useState("enroll");
-  const [userId, setUserId] = useState("");
+  const [userId, setUserId] = useState("cfo_priya");
   const [enrolled, setEnrolled] = useState(false);
   const [sessionId, setSessionId] = useState(null);
 
@@ -21,9 +21,13 @@ export default function App() {
     <div className="console-shell">
       <aside className="nav-rail">
         <div className="brand-mark">
-          <span className="brand-dot" />
-          VoxGuard
+          <div className="brand-icon">🛡️</div>
+          <div>
+            <span className="brand-text">VoxGuard</span>
+            <span className="brand-badge">PRO v2.0</span>
+          </div>
         </div>
+
         <nav>
           {MODULES.map((m) => (
             <button
@@ -36,37 +40,72 @@ export default function App() {
             </button>
           ))}
         </nav>
+
         <div className="nav-rail-footer">
           <div className="status-row">
             <span className="led led-live" />
-            System active
+            <span>Firewall Active</span>
           </div>
-          <div className="session-id muted">
-            {sessionId ? `session ${sessionId}` : "no active session"}
+          <div className="muted small" style={{ fontFamily: "var(--font-mono)" }}>
+            {sessionId ? `Session #${sessionId}` : "Standby (No session)"}
           </div>
         </div>
       </aside>
 
       <main className="console-main">
         <header className="console-header">
-          <div>
-            <div className="console-title">Deepfake Voice Firewall</div>
-            <div className="muted">Live scoring for corporate calls — preventative, not forensic.</div>
+          <div className="console-title-group">
+            <div className="console-title">
+              Deepfake Voice Firewall
+              <span className="status-badge-chip">
+                <span className="led led-live" /> REAL-TIME PROTECTED
+              </span>
+            </div>
+            <div className="muted">
+              Live biometric authentication &amp; synthetic speech detection for corporate authorizations.
+            </div>
+          </div>
+
+          <div className="meta-chips-bar">
+            <div className="meta-chip">
+              Target ID: <strong>{userId || "None"}</strong>
+            </div>
+            <div className="meta-chip">
+              Session: <strong>{sessionId || "Inactive"}</strong>
+            </div>
           </div>
         </header>
 
         <div className="module-area">
           {active === "enroll" && (
-            <EnrollPanel userId={userId} setUserId={setUserId} onEnrolled={() => setEnrolled(true)} />
+            <EnrollPanel
+              userId={userId}
+              setUserId={setUserId}
+              onEnrolled={(id) => {
+                setUserId(id);
+                setEnrolled(true);
+              }}
+            />
           )}
-          {active === "call" && <CallSimulator userId={userId} onSession={setSessionId} />}
+          {active === "call" && (
+            <CallSimulator
+              userId={userId}
+              onSession={(sid) => setSessionId(sid)}
+            />
+          )}
           {active === "challenge" && <ChallengePanel sessionId={sessionId} />}
           {active === "transfer" && <TransferPanel sessionId={sessionId} />}
         </div>
 
         <footer className="app-footer">
-          Backend must be running at the URL set in VITE_API_URL (default http://localhost:8000).
-          {!enrolled && " Enroll a voice first before starting a call."}
+          <div>
+            VoxGuard Endpoint: <code>http://localhost:8000</code>
+          </div>
+          <div>
+            {!enrolled
+              ? "Tip: Record sample audio in Module 01 before starting a live call."
+              : `Active Voice-DNA Profile: ${userId}`}
+          </div>
         </footer>
       </main>
     </div>

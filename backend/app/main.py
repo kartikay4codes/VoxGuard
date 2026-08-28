@@ -28,6 +28,7 @@ import time
 import uuid
 import wave
 import logging
+import asyncio
 import numpy as np
 from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -146,7 +147,7 @@ async def enroll(user_id: str, files: list[UploadFile] = File(...)):
     if not chunks:
         raise HTTPException(400, "No audio provided")
 
-    embedding = enroll_embedding(chunks, SAMPLE_RATE)
+    embedding = await asyncio.to_thread(enroll_embedding, chunks, SAMPLE_RATE)
     store.enroll(user_id, embedding)
 
     return {"user_id": user_id, "status": "enrolled", "chunks_used": len(chunks)}
@@ -207,7 +208,7 @@ async def submit_chunk(session_id: str, file: UploadFile = File(...)):
     testable with plain curl/Postman too)."""
     raw = await file.read()
     signal, sr = wav_bytes_to_array(raw)
-    return process_chunk(session_id, signal)
+    return await asyncio.to_thread(process_chunk, session_id, signal)
 
 
 @app.websocket("/ws/call/{session_id}")
@@ -220,7 +221,7 @@ async def call_stream(websocket: WebSocket, session_id: str):
         while True:
             raw = await websocket.receive_bytes()
             signal, sr = wav_bytes_to_array(raw)
-            result = process_chunk(session_id, signal)
+            result = await asyncio.to_thread(process_chunk, session_id, signal)
             await websocket.send_json(result)
     except WebSocketDisconnect:
         pass
@@ -238,6 +239,22 @@ async def start_challenge(session_id: str):
     return ch
 
 
+def _verify_challenge_sync(session, signal, voice_embedding, issued_at, phrase):
+    responded_at = time.time()
+    timing = challenge_mod.check_timing_liveness(issued_at, responded_at)
+    replay = challenge_mod.check_not_replay(signal, session.recent_chunks)
+    content = challenge_mod.verify_transcript_stub(signal, phrase)
+    verify_result = verify(signal, voice_embedding, SAMPLE_RATE)
+    passed = timing["timing_ok"] and not replay["is_replay"] and verify_result["similarity"] > 0.7
+    return {
+        "timing": timing,
+        "replay_check": replay,
+        "content_check": content,
+        "speaker_similarity": round(verify_result["similarity"], 3),
+        "passed": passed,
+    }
+
+
 @app.post("/challenge/respond/{session_id}")
 async def respond_challenge(session_id: str, file: UploadFile = File(...)):
     session = store.get_session(session_id)
@@ -249,24 +266,17 @@ async def respond_challenge(session_id: str, file: UploadFile = File(...)):
     voice = store.get_voice(session.user_id)
     raw = await file.read()
     signal, sr = wav_bytes_to_array(raw)
-    responded_at = time.time()
 
-    timing = challenge_mod.check_timing_liveness(session.active_challenge["issued_at"], responded_at)
-    replay = challenge_mod.check_not_replay(signal, session.recent_chunks)
-    content = challenge_mod.verify_transcript_stub(signal, session.active_challenge["phrase"])
-    verify_result = verify(signal, voice.embedding, SAMPLE_RATE)
-
-    passed = timing["timing_ok"] and not replay["is_replay"] and verify_result["similarity"] > 0.7
-
+    res = await asyncio.to_thread(
+        _verify_challenge_sync,
+        session,
+        signal,
+        voice.embedding,
+        session.active_challenge["issued_at"],
+        session.active_challenge["phrase"],
+    )
     session.active_challenge = None
-
-    return {
-        "timing": timing,
-        "replay_check": replay,
-        "content_check": content,
-        "speaker_similarity": round(verify_result["similarity"], 3),
-        "passed": passed,
-    }
+    return res
 
 
 # ---------------------------------- transfer ----------------------------------
